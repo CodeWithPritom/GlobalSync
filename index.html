@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Team Time & Meeting Planner</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Luxon library for timezone meeting calculations -->
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+    
+    <style>
+        /* =========================================
+           CSS STYLES
+           ========================================= */
+        :root {
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --secondary: #e5e7eb;
+            --secondary-hover: #d1d5db;
+            --secondary-text: #374151;
+            --success: #10b981;
+            --success-hover: #059669;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --late-bg: #fee2e2;
+            --late-text: #991b1b;
+            --border: #e5e7eb;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --radius: 12px;
+        }[data-theme="dark"] {
+            --bg-color: #111827;
+            --card-bg: #1f2937;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --primary: #3b82f6;
+            --primary-hover: #60a5fa;
+            --secondary: #374151;
+            --secondary-hover: #4b5563;
+            --secondary-text: #f9fafb;
+            --success: #10b981;
+            --success-hover: #34d399;
+            --danger: #ef4444;
+            --danger-hover: #f87171;
+            --late-bg: #451a1a;
+            --late-text: #fca5a5;
+            --border: #374151;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.5;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .hidden { display: none !important; }
+        .mt-4 { margin-top: 1rem; }
+        .mt-auto { margin-top: auto; }
+        .position-relative { position: relative; }
+
+        .top-nav {
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;
+            padding: 1rem 2rem; background-color: var(--card-bg); border-bottom: 1px solid var(--border);
+        }
+
+        .nav-brand { font-weight: 700; font-size: 1.25rem; }
+        
+        .team-switcher {
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .team-switcher select {
+            padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid var(--border);
+            background-color: var(--bg-color); color: var(--text-main); font-weight: 500;
+            font-family: 'Inter', sans-serif; cursor: pointer;
+        }
+
+        .nav-controls { display: flex; gap: 1rem; align-items: center; }
+
+        .view-container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+
+        .card {
+            background-color: var(--card-bg); border-radius: var(--radius);
+            padding: 1.5rem; box-shadow: var(--shadow); border: 1px solid var(--border);
+        }
+
+        h1, h2, h3 { color: var(--text-main); margin-bottom: 0.5rem; }
+        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .divider { border: 0; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+
+        .btn {
+            padding: 0.6rem 1.2rem; border-radius: 6px; border: none; font-weight: 500;
+            cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif;
+            white-space: nowrap;
+        }
+
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-secondary { background-color: var(--secondary); color: var(--secondary-text); }
+        .btn-secondary:hover { background-color: var(--secondary-hover); }
+        .btn-danger { background-color: var(--danger); color: white; }
+        .btn-danger:hover { background-color: var(--danger-hover); }
+        .btn-success { background-color: var(--success); color: white; }
+        .btn-success:hover { background-color: var(--success-hover); }
+        .btn-block { width: 100%; padding: 0.8rem; font-size: 1.1rem; }
+        .btn-icon { background: transparent; border: none; cursor: pointer; color: var(--text-main); font-weight: 500; font-size: 1rem; }
+
+        .form-group { margin-bottom: 1rem; width: 100%; }
+        .form-group label { display: block; margin-bottom: 0.4rem; font-size: 0.9rem; font-weight: 500; }
+        
+        input[type="text"], input[type="datetime-local"] {
+            width: 100%; padding: 0.6rem; border-radius: 6px; border: 1px solid var(--border);
+            background-color: var(--bg-color); color: var(--text-main); font-family: 'Inter', sans-serif;
+        }
+
+        /* Autocomplete Dropdown Styles */
+        .autocomplete-results {
+            position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 6px; margin-top: 4px; box-shadow: var(--shadow);
+            max-height: 200px; overflow-y: auto; list-style: none;
+        }
+        .autocomplete-results li {
+            padding: 0.75rem 1rem; cursor: pointer; border-bottom: 1px solid var(--border);
+            font-size: 0.9rem; color: var(--text-main); transition: background 0.2s;
+        }
+        .autocomplete-results li:last-child { border-bottom: none; }
+        .autocomplete-results li:hover { background: var(--secondary); }
+        .autocomplete-results li .small-text { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;}
+
+        .pending-list { list-style: none; margin-top: 1rem; }
+        .pending-list li {
+            background-color: var(--bg-color); padding: 0.5rem 1rem; border-radius: 6px;
+            margin-bottom: 0.5rem; display: flex; justify-content: space-between;
+        }
+
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+        .organizer-time { color: var(--text-muted); font-weight: 500; }
+        .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+        .planner-controls { display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; }
+
+        .team-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
+        @media (min-width: 768px) { .team-grid { grid-template-columns: repeat(2, 1fr); } .form-row { display: flex; gap: 1rem; } }
+        @media (min-width: 1024px) { .team-grid { grid-template-columns: repeat(3, 1fr); } }
+
+        .member-card { display: flex; flex-direction: column; position: relative; transition: transform 0.2s; }
+        .member-card:hover { transform: translateY(-3px); }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+        .member-name { font-size: 1.1rem; font-weight: 600; }
+        .member-role { font-size: 0.8rem; color: var(--primary); font-weight: 500; background: var(--secondary); padding: 0.2rem 0.6rem; border-radius: 12px; }
+        .member-tz { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.3rem;}
+
+        .card-body { flex-grow: 1; }
+        .clock-display { font-size: 1.8rem; font-weight: 700; margin: 0.5rem 0; font-variant-numeric: tabular-nums; }
+        .clock-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+
+        .meeting-result { margin-top: 1rem; padding: 0.75rem; background-color: var(--bg-color); border-radius: 6px; border: 1px solid var(--border); }
+        .meeting-result-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.2rem; }
+        .meeting-result-time { font-weight: 600; }
+        .late-night { background-color: var(--late-bg); border-color: var(--danger); }
+        .late-night .meeting-result-time { color: var(--late-text); }
+        .card-footer { margin-top: 1rem; display: flex; justify-content: flex-end; }
+
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);
+            display: flex; justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-content { width: 90%; max-width: 500px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation -->
+    <nav class="top-nav">
+        <div class="nav-brand">🌐 GlobalSync</div>
+        
+        <div class="team-switcher hidden" id="team-switcher-container">
+            <label for="global-team-select" style="font-size: 0.9rem; font-weight: 500;">Team:</label>
+            <select id="global-team-select"></select>
+        </div>
+
+        <div class="nav-controls">
+            <button id="theme-toggle" class="btn-icon">🌙 Dark Mode</button>
+        </div>
+    </nav>
+
+    <!-- SETUP VIEW (Used for First-Time Users or Creating a New Team) -->
+    <div id="setup-view" class="view-container hidden">
+        <div class="card setup-card">
+            <h2 id="setup-title">Create a New Team</h2>
+            <p class="subtitle">Set up your global team. You can manage multiple teams and share them via links.</p>
+            
+            <div class="form-group">
+                <label for="setup-team-name">Team Name</label>
+                <input type="text" id="setup-team-name" placeholder="e.g. Project Alpha Devs">
+            </div>
+
+            <hr class="divider">
+
+            <h3>Add Team Members</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="setup-member-name" placeholder="e.g. Alex">
+                </div>
+                <div class="form-group">
+                    <label>Role (Optional)</label>
+                    <input type="text" id="setup-member-role" placeholder="e.g. Developer">
+                </div>
+            </div>
+            
+            <div class="form-group position-relative">
+                <label>Location (City, State, or Country)</label>
+                <input type="text" id="setup-location-search" placeholder="Search any city like 'Srinagar' or 'London'..." autocomplete="off">
+                <ul id="setup-location-results" class="autocomplete-results hidden"></ul>
+            </div>
+
+            <button id="setup-add-member-btn" class="btn btn-secondary mt-4">➕ Add to List</button>
+
+            <!-- Pending Members List -->
+            <ul id="setup-members-list" class="pending-list"></ul>
+
+            <div style="display: flex; gap: 1rem;" class="mt-4">
+                <button id="cancel-setup-btn" class="btn btn-secondary btn-block hidden">Cancel</button>
+                <button id="save-team-btn" class="btn btn-primary btn-block">💾 Save Team</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DASHBOARD VIEW -->
+    <div id="dashboard-view" class="view-container hidden">
+        
+        <!-- Header -->
+        <header class="dashboard-header card">
+            <div class="header-info">
+                <h1 id="dash-team-name">Team Name</h1>
+                <p class="organizer-time">
+                    📅 <span id="current-date"></span> | 
+                    ⏱️ Your Local Time: <span id="organizer-clock"></span>
+                </p>
+            </div>
+            <div class="header-actions">
+                <button id="dash-share-btn" class="btn btn-success">🔗 Share Team Link</button>
+                <button id="dash-add-member-btn" class="btn btn-primary">➕ Add Member</button>
+                <button id="dash-delete-team-btn" class="btn btn-danger">🗑️ Delete</button>
+            </div>
+        </header>
+
+        <!-- Meeting Planner -->
+        <section class="meeting-planner card mt-4">
+            <h2>📅 Plan a Meeting</h2>
+            <p class="subtitle">Set a time and drop your meeting link below. Everything is saved automatically!</p>
+            
+            <div class="planner-controls">
+                <div class="form-group" style="max-width: 250px; margin-bottom: 0;">
+                    <label for="meeting-datetime">Meeting Date & Time</label>
+                    <input type="datetime-local" id="meeting-datetime">
+                </div>
+                <div class="form-group" style="flex-grow: 1; min-width: 200px; max-width: 450px; margin-bottom: 0;">
+                    <label for="meeting-url">Meeting Link (Zoom/Meet)</label>
+                    <input type="text" id="meeting-url" placeholder="https://zoom.us/j/123...">
+                </div>
+                <button id="copy-summary-btn" class="btn btn-secondary">📋 Copy Summary</button>
+            </div>
+        </section>
+
+        <!-- Team Members Grid -->
+        <section class="team-section mt-4">
+            <h2>👥 Team Members</h2>
+            <div id="team-grid" class="team-grid"></div>
+        </section>
+    </div>
+
+    <!-- ADD MEMBER MODAL -->
+    <div id="add-member-modal" class="modal hidden">
+        <div class="modal-content card">
+            <h2>Add Team Member</h2>
+            <div class="form-row mt-4">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="modal-member-name" placeholder="e.g. Sarah">
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <input type="text" id="modal-member-role" placeholder="e.g. Designer">
+                </div>
+            </div>
+            
+            <div class="form-group position-relative">
+                <label>Location (City, State, or Country)</label>
+                <input type="text" id="modal-location-search" placeholder="Search any city in the world..." autocomplete="off">
+                <ul id="modal-location-results" class="autocomplete-results hidden"></ul>
+            </div>
+
+            <div class="modal-actions mt-4">
+                <button id="modal-cancel-btn" class="btn btn-secondary">Cancel</button>
+                <button id="modal-save-btn" class="btn btn-primary">Save Member</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        /* =========================================
+           DATA STRUCTURES & GLOBALS
+           ========================================= */
+        const STORAGE_KEY = 'globalTeamsApp_v2';
+        
+        let appData = {
+            activeTeamId: null,
+            teams: {} // Format: { "team_123": { id: "team_123", name: "Alpha", meetingTime: "", meetingUrl: "", members:[] } }
+        };
+
+        let pendingSetupMembers =[];
+        let clockInterval;
+        let currentSetupSelection = null;
+        let currentModalSelection = null;
+
+        /* =========================================
+           API LOGIC: OPEN-METEO GEOCODING
+           ========================================= */
+        function debounce(func, delay) {
+            let timeoutId;
+            return function(...args) {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => func.apply(this, args), delay);
+            };
+        }
+
+        async function fetchLocations(query) {
+            if (!query || query.length < 2) return[];
+            try {
+                const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=en&format=json`);
+                const data = await res.json();
+                return data.results ||[];
+            } catch(e) {
+                return[];
+            }
+        }
+
+        function setupAutocomplete(inputId, resultsId, onSelectCallback) {
+            const inputEl = document.getElementById(inputId);
+            const resultsEl = document.getElementById(resultsId);
+
+            const handleInput = debounce(async (e) => {
+                const query = e.target.value.trim();
+                if (query.length < 2) {
+                    resultsEl.classList.add('hidden');
+                    return;
+                }
+
+                resultsEl.innerHTML = '<li class="text-muted">Searching...</li>';
+                resultsEl.classList.remove('hidden');
+
+                const results = await fetchLocations(query);
+                resultsEl.innerHTML = '';
+
+                if (results.length === 0) {
+                    resultsEl.innerHTML = '<li class="text-muted">No places found. Try a nearby city.</li>';
+                    return;
+                }
+
+                results.forEach(place => {
+                    const li = document.createElement('li');
+                    const locationString = `${place.name}${place.admin1 ? ', ' + place.admin1 : ''}, ${place.country}`;
+                    li.innerHTML = `<strong>${place.name}</strong><span class="small-text">${place.admin1 ? place.admin1 + ', ' : ''}${place.country} • TZ: ${place.timezone}</span>`;
+                    
+                    li.addEventListener('click', () => {
+                        inputEl.value = locationString;
+                        resultsEl.classList.add('hidden');
+                        onSelectCallback({ name: place.name, country: place.country, fullString: locationString, timezone: place.timezone });
+                    });
+                    resultsEl.appendChild(li);
+                });
+            }, 400);
+
+            inputEl.addEventListener('input', (e) => {
+                onSelectCallback(null); 
+                handleInput(e);
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!inputEl.contains(e.target) && !resultsEl.contains(e.target)) resultsEl.classList.add('hidden');
+            });
+        }
+
+        /* =========================================
+           IMPORT / EXPORT COMPRESSION 
+           ========================================= */
+        function exportTeamData(team) {
+            // Convert local meeting time to absolute UTC for proper cross-timezone sharing
+            let mtUtc = "";
+            if (team.meetingTime) {
+                mtUtc = luxon.DateTime.fromISO(team.meetingTime).toUTC().toISO();
+            }
+
+            return {
+                n: team.name,
+                mt: mtUtc,
+                mu: team.meetingUrl || "",
+                m: team.members.map(mb => ({ n: mb.name, r: mb.role, t: mb.timezone, d: mb.displayLocation }))
+            };
+        }
+
+        function parseImportedTeam(data) {
+            const newId = 'team_' + Date.now();
+            
+            // Convert imported UTC meeting time back to user's local timezone perfectly!
+            let localMt = "";
+            if (data.mt) {
+                localMt = luxon.DateTime.fromISO(data.mt).toFormat("yyyy-MM-dd'T'HH:mm");
+            }
+
+            return {
+                id: newId,
+                name: data.n || "Imported Team",
+                meetingTime: localMt,
+                meetingUrl: data.mu || "",
+                members: (data.m ||[]).map(mb => ({
+                    id: 'mem_' + Math.random().toString(36).substr(2, 9),
+                    name: mb.n, role: mb.r, timezone: mb.t, displayLocation: mb.d
+                }))
+            };
+        }
+
+        /* =========================================
+           INITIALIZATION & ROUTING
+           ========================================= */
+        function init() {
+            loadTheme();
+            setupAutocomplete('setup-location-search', 'setup-location-results', s => currentSetupSelection = s);
+            setupAutocomplete('modal-location-search', 'modal-location-results', s => currentModalSelection = s);
+
+            const savedApp = localStorage.getItem(STORAGE_KEY);
+            if (savedApp) appData = JSON.parse(savedApp);
+            
+            const params = new URLSearchParams(window.location.search);
+            const importPayload = params.get('import');
+            
+            if (importPayload) {
+                try {
+                    const minifiedData = JSON.parse(decodeURIComponent(atob(importPayload)));
+                    const importedTeam = parseImportedTeam(minifiedData);
+                    
+                    if (confirm(`Someone shared the team "${importedTeam.name}" with you.\nDo you want to import it into your dashboard?`)) {
+                        appData.teams[importedTeam.id] = importedTeam;
+                        appData.activeTeamId = importedTeam.id;
+                        saveData();
+                    }
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch(e) {
+                    alert("The shared link is invalid or corrupted.");
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            } else {
+                const hash = window.location.hash.replace('#', '');
+                if (hash && appData.teams[hash]) {
+                    appData.activeTeamId = hash;
+                }
+            }
+
+            renderUI();
+        }
+
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        }
+
+        function renderUI() {
+            updateTeamDropdown();
+            
+            const hasTeams = Object.keys(appData.teams).length > 0;
+            if (!hasTeams || appData.activeTeamId === 'new') {
+                showSetup();
+            } else {
+                if (!appData.teams[appData.activeTeamId]) {
+                    appData.activeTeamId = Object.keys(appData.teams)[0];
+                }
+                window.location.hash = appData.activeTeamId;
+                showDashboard();
+            }
+        }
+
+        /* =========================================
+           NAVIGATION & TOP BAR
+           ========================================= */
+        function updateTeamDropdown() {
+            const selectorContainer = document.getElementById('team-switcher-container');
+            const selectEl = document.getElementById('global-team-select');
+            
+            const teamKeys = Object.keys(appData.teams);
+            if (teamKeys.length === 0) {
+                selectorContainer.classList.add('hidden');
+                return;
+            }
+
+            selectorContainer.classList.remove('hidden');
+            selectEl.innerHTML = '';
+            
+            teamKeys.forEach(key => {
+                const team = appData.teams[key];
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = team.name;
+                if (key === appData.activeTeamId) option.selected = true;
+                selectEl.appendChild(option);
+            });
+
+            const newOption = document.createElement('option');
+            newOption.value = 'new';
+            newOption.textContent = '➕ Create New Team';
+            selectEl.appendChild(newOption);
+        }
+
+        document.getElementById('global-team-select').addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (val === 'new') {
+                appData.activeTeamId = 'new';
+                showSetup();
+            } else {
+                appData.activeTeamId = val;
+                saveData();
+                renderUI();
+            }
+        });
+
+        /* =========================================
+           THEME LOGIC
+           ========================================= */
+        function loadTheme() {
+            const isDark = localStorage.getItem('darkMode') === 'true';
+            if (isDark) document.body.setAttribute('data-theme', 'dark');
+            updateThemeButton(isDark);
+        }
+
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            const isDark = document.body.getAttribute('data-theme') === 'dark';
+            if (isDark) {
+                document.body.removeAttribute('data-theme');
+                localStorage.setItem('darkMode', 'false');
+                updateThemeButton(false);
+            } else {
+                document.body.setAttribute('data-theme', 'dark');
+                localStorage.setItem('darkMode', 'true');
+                updateThemeButton(true);
+            }
+        });
+
+        function updateThemeButton(isDark) {
+            document.getElementById('theme-toggle').innerHTML = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
+        }
+
+        /* =========================================
+           SETUP VIEW LOGIC
+           ========================================= */
+        function showSetup() {
+            document.getElementById('setup-view').classList.remove('hidden');
+            document.getElementById('dashboard-view').classList.add('hidden');
+            
+            pendingSetupMembers =[];
+            document.getElementById('setup-team-name').value = '';
+            renderPendingMembers();
+
+            const cancelBtn = document.getElementById('cancel-setup-btn');
+            if (Object.keys(appData.teams).length > 0) {
+                cancelBtn.classList.remove('hidden');
+            } else {
+                cancelBtn.classList.add('hidden');
+            }
+        }
+
+        document.getElementById('cancel-setup-btn').addEventListener('click', () => {
+            appData.activeTeamId = Object.keys(appData.teams)[0];
+            renderUI();
+        });
+
+        document.getElementById('setup-add-member-btn').addEventListener('click', () => {
+            const name = document.getElementById('setup-member-name').value.trim();
+            const role = document.getElementById('setup-member-role').value.trim();
+
+            if (!name) return alert("Please enter a name.");
+            if (!currentSetupSelection) return alert("Please search and select a location from the dropdown suggestions.");
+
+            pendingSetupMembers.push({ 
+                id: 'mem_' + Math.random().toString(36).substr(2, 9), 
+                name, role, timezone: currentSetupSelection.timezone, displayLocation: currentSetupSelection.fullString 
+            });
+            
+            document.getElementById('setup-member-name').value = '';
+            document.getElementById('setup-member-role').value = '';
+            document.getElementById('setup-location-search').value = '';
+            currentSetupSelection = null;
+            renderPendingMembers();
+        });
+
+        function renderPendingMembers() {
+            const list = document.getElementById('setup-members-list');
+            list.innerHTML = '';
+            pendingSetupMembers.forEach(m => {
+                list.innerHTML += `<li><span><b>${m.name}</b> (${m.displayLocation})</span></li>`;
+            });
+        }
+
+        document.getElementById('save-team-btn').addEventListener('click', () => {
+            const teamName = document.getElementById('setup-team-name').value.trim();
+            if (!teamName) return alert("Please enter a Team Name.");
+            if (pendingSetupMembers.length === 0) return alert("Please add at least one member.");
+
+            const newTeamId = 'team_' + Date.now();
+            appData.teams[newTeamId] = { 
+                id: newTeamId, 
+                name: teamName, 
+                meetingTime: "", 
+                meetingUrl: "",
+                members:[...pendingSetupMembers] 
+            };
+            appData.activeTeamId = newTeamId;
+            saveData();
+            renderUI();
+        });
+
+        /* =========================================
+           DASHBOARD & TEAM MANAGEMENT
+           ========================================= */
+        function showDashboard() {
+            document.getElementById('setup-view').classList.add('hidden');
+            document.getElementById('dashboard-view').classList.remove('hidden');
+            
+            const activeTeam = appData.teams[appData.activeTeamId];
+            document.getElementById('dash-team-name').textContent = activeTeam.name;
+
+            // RESTORE Saved Data to inputs
+            document.getElementById('meeting-datetime').value = activeTeam.meetingTime || '';
+            document.getElementById('meeting-url').value = activeTeam.meetingUrl || '';
+            
+            renderTeamGrid();
+            startLiveClocks();
+        }
+
+        document.getElementById('dash-delete-team-btn').addEventListener('click', () => {
+            const activeTeam = appData.teams[appData.activeTeamId];
+            if (confirm(`Are you sure you want to permanently delete "${activeTeam.name}"?`)) {
+                delete appData.teams[appData.activeTeamId];
+                appData.activeTeamId = null;
+                window.location.hash = '';
+                saveData();
+                renderUI();
+            }
+        });
+
+        document.getElementById('dash-share-btn').addEventListener('click', () => {
+            const activeTeam = appData.teams[appData.activeTeamId];
+            const minified = exportTeamData(activeTeam);
+            const encodedData = btoa(encodeURIComponent(JSON.stringify(minified)));
+            
+            const shareUrl = window.location.origin + window.location.pathname + "?import=" + encodedData;
+            
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                alert("Share link copied to clipboard! The imported team will include your meeting date and Zoom link.");
+            }).catch(err => {
+                prompt("Copy this link manually:", shareUrl);
+            });
+        });
+
+        function startLiveClocks() {
+            if(clockInterval) clearInterval(clockInterval);
+            updateClocks();
+            clockInterval = setInterval(updateClocks, 1000);
+        }
+
+        function updateClocks() {
+            const now = new Date();
+            const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            
+            // Explicitly force 'en-US' and hour12:true to ensure AM/PM format
+            const headerFormatter = new Intl.DateTimeFormat('en-US', { timeZone: localTz, dateStyle: 'full' });
+            const headerTimeFormatter = new Intl.DateTimeFormat('en-US', { 
+                timeZone: localTz, 
+                hour: 'numeric', 
+                minute: '2-digit', 
+                second: '2-digit', 
+                hour12: true 
+            });
+            
+            document.getElementById('current-date').textContent = headerFormatter.format(now);
+            document.getElementById('organizer-clock').textContent = headerTimeFormatter.format(now);
+
+            const activeTeam = appData.teams[appData.activeTeamId];
+            if(!activeTeam) return;
+
+            activeTeam.members.forEach(member => {
+                const el = document.getElementById(`clock-${member.id}`);
+                if (el) {
+                    try {
+                        const formatter = new Intl.DateTimeFormat('en-US', {
+                            timeZone: member.timezone, 
+                            hour: 'numeric', 
+                            minute: '2-digit', 
+                            second: '2-digit', 
+                            hour12: true
+                        });
+                        el.textContent = formatter.format(now);
+                    } catch(e) { el.textContent = "--:--:--"; }
+                }
+            });
+        }
+
+        function renderTeamGrid() {
+            const grid = document.getElementById('team-grid');
+            grid.innerHTML = '';
+
+            const activeTeam = appData.teams[appData.activeTeamId];
+            if(!activeTeam) return;
+
+            activeTeam.members.forEach(member => {
+                const roleHtml = member.role ? `<span class="member-role">${member.role}</span>` : '';
+                grid.innerHTML += `
+                    <div class="card member-card">
+                        <div class="card-header">
+                            <div>
+                                <div class="member-name">${member.name}</div>
+                                <div class="member-tz" title="Timezone: ${member.timezone}">📍 ${member.displayLocation || member.timezone}</div>
+                            </div>
+                            ${roleHtml}
+                        </div>
+                        <div class="card-body">
+                            <div class="clock-label">Current Local Time</div>
+                            <div class="clock-display" id="clock-${member.id}">--:--:--</div>
+                            <div class="meeting-result" id="meeting-box-${member.id}">
+                                <div class="meeting-result-label">Meeting Time</div>
+                                <div class="meeting-result-time" id="meeting-time-${member.id}">Not Set</div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button class="btn btn-danger btn-delete" onclick="deleteMember('${member.id}')">Remove</button>
+                        </div>
+                    </div>
+                `;
+            });
+            convertMeetingTime(); 
+        }
+
+        /* ================= MEETING PLANNER (SAVE TIME & LINK) ================= */
+        
+        // Save Meeting Time to local storage when changed
+        document.getElementById('meeting-datetime').addEventListener('input', (e) => {
+            const activeTeam = appData.teams[appData.activeTeamId];
+            if (activeTeam) {
+                activeTeam.meetingTime = e.target.value;
+                saveData();
+                convertMeetingTime();
+            }
+        });
+
+        // Save Meeting Link to local storage when changed
+        document.getElementById('meeting-url').addEventListener('input', (e) => {
+            const activeTeam = appData.teams[appData.activeTeamId];
+            if (activeTeam) {
+                activeTeam.meetingUrl = e.target.value;
+                saveData();
+            }
+        });
+
+        function convertMeetingTime() {
+            const inputVal = document.getElementById('meeting-datetime').value;
+            const activeTeam = appData.teams[appData.activeTeamId];
+            
+            if (!inputVal || !activeTeam) {
+                if (activeTeam) {
+                    activeTeam.members.forEach(member => {
+                        const el = document.getElementById(`meeting-time-${member.id}`);
+                        const box = document.getElementById(`meeting-box-${member.id}`);
+                        if(el) el.textContent = "Not Set";
+                        if(box) box.classList.remove('late-night');
+                    });
+                }
+                return;
+            }
+
+            const DateTime = luxon.DateTime;
+            const localMeetingDt = DateTime.fromISO(inputVal);
+
+            activeTeam.members.forEach(member => {
+                const meetingBox = document.getElementById(`meeting-box-${member.id}`);
+                const meetingTimeEl = document.getElementById(`meeting-time-${member.id}`);
+                if (!meetingBox || !meetingTimeEl) return;
+
+                try {
+                    const memberDt = localMeetingDt.setZone(member.timezone);
+                    // 'h:mm a' automatically outputs in 12-hour AM/PM format
+                    meetingTimeEl.textContent = memberDt.toFormat("ccc, LLL d • h:mm a");
+
+                    const hour = memberDt.hour;
+                    if (hour >= 22 || hour < 6) {
+                        meetingBox.classList.add('late-night');
+                        if (!meetingTimeEl.innerHTML.includes('(Late)')) {
+                            meetingTimeEl.innerHTML += ' <br>🌙 <span style="font-size:0.85em">(Late Night)</span>';
+                        }
+                    } else {
+                        meetingBox.classList.remove('late-night');
+                    }
+                } catch(e) { meetingTimeEl.textContent = "Timezone Calc Error"; }
+            });
+        }
+
+        document.getElementById('copy-summary-btn').addEventListener('click', () => {
+            const inputVal = document.getElementById('meeting-datetime').value;
+            const urlVal = document.getElementById('meeting-url').value;
+            const activeTeam = appData.teams[appData.activeTeamId];
+
+            if (!inputVal) return alert("Please set a meeting date/time first.");
+
+            const DateTime = luxon.DateTime;
+            const localMeetingDt = DateTime.fromISO(inputVal);
+            let summaryText = `📅 Meeting Summary - ${activeTeam.name}\n--------------------------------------\n`;
+
+            activeTeam.members.forEach(member => {
+                const memberDt = localMeetingDt.setZone(member.timezone);
+                summaryText += `${member.name}: ${memberDt.toFormat("ccc, LLL d @ h:mm a")} (${member.displayLocation})\n`;
+            });
+
+            if (urlVal) {
+                summaryText += `\n🔗 Meeting Link: ${urlVal}\n`;
+            }
+
+            navigator.clipboard.writeText(summaryText).then(() => alert("Meeting summary copied to clipboard!"));
+        });
+
+        /* ================= MODAL FOR ADDING MEMBERS ================= */
+        function deleteMember(memberId) {
+            const activeTeam = appData.teams[appData.activeTeamId];
+            if (confirm("Remove this member from the team?")) {
+                activeTeam.members = activeTeam.members.filter(m => m.id !== memberId);
+                saveData();
+                renderTeamGrid();
+            }
+        }
+
+        const addModal = document.getElementById('add-member-modal');
+        document.getElementById('dash-add-member-btn').addEventListener('click', () => addModal.classList.remove('hidden'));
+        document.getElementById('modal-cancel-btn').addEventListener('click', () => addModal.classList.add('hidden'));
+
+        document.getElementById('modal-save-btn').addEventListener('click', () => {
+            const name = document.getElementById('modal-member-name').value.trim();
+            const role = document.getElementById('modal-member-role').value.trim();
+
+            if (!name) return alert("Please enter a name.");
+            if (!currentModalSelection) return alert("Please select a location from the dropdown suggestions.");
+
+            const activeTeam = appData.teams[appData.activeTeamId];
+            activeTeam.members.push({ 
+                id: 'mem_' + Math.random().toString(36).substr(2, 9), 
+                name, role, timezone: currentModalSelection.timezone, displayLocation: currentModalSelection.fullString 
+            });
+            
+            saveData();
+            
+            document.getElementById('modal-member-name').value = '';
+            document.getElementById('modal-member-role').value = '';
+            document.getElementById('modal-location-search').value = '';
+            currentModalSelection = null;
+            addModal.classList.add('hidden');
+            
+            renderTeamGrid();
+        });
+
+        // Boot
+        init();
+    </script>
+</body>
+</html>
