@@ -1,0 +1,2 @@
+# GlobalSync
+Vibe Coded Website
